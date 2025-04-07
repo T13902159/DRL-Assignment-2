@@ -236,34 +236,77 @@ class Game2048Env(gym.Env):
         return not np.array_equal(self.board, temp_board)
 
 
-def load_value_function(filename='value.pkl'):
-    """Load the value function from a pickle file."""
-    with open(filename, 'rb') as f:
-        value_function = pickle.load(f)
-    return value_function
+class StudentAgent:
+    def __init__(self, env):
+        self.env = env
+        self.actions = ["up", "down", "left", "right"]
+
+    def check_move_valid(self, action):
+        """Check if a move is valid."""
+        # Create a copy of the current board state
+        temp_board = self.env.board.copy()
+        moved = False
+
+        if action == 0:  # Move up
+            moved = self.env.move_up()
+        elif action == 1:  # Move down
+            moved = self.env.move_down()
+        elif action == 2:  # Move left
+            moved = self.env.move_left()
+        elif action == 3:  # Move right
+            moved = self.env.move_right()
+
+        # Return if the move was valid (it changed the board)
+        return moved
+
+    def get_action(self, state, score):
+        """
+        Get action based on the current state and score using the defined strategy:
+        1. Try right, down
+        2. Use left if right/down are invalid
+        3. Use up if left is also invalid
+        """
+        # Check for right (action 3) move first
+        if self.check_move_valid(3):  # Right
+            return 3
+
+        # Check for down (action 1) move second
+        if self.check_move_valid(1):  # Down
+            return 1
+
+        # Check for left (action 2) move if right and down are not valid
+        if self.check_move_valid(2):  # Left
+            return 2
+
+        # Check for up (action 0) if none of the above are valid
+        if self.check_move_valid(0):  # Up
+            return 0
+
+        # If no move is valid, return a random action (just in case)
+        return random.choice([0, 1, 2, 3])
 
 
-def get_action(state, score):
-    """Get action based on the state and score using the value function."""
+# Initialize the Game Environment
+env = Game2048Env()
 
-    # Load the value function (you can modify this if needed to load it just once globally)
-    value_function = load_value_function()
+# Initialize the Agent with the Environment
+agent = StudentAgent(env)
 
-    # Convert the state to a format suitable for the value function (this may depend on how it's stored)
-    # Example of converting the state to a tuple of tuples
-    state_tuple = tuple(map(tuple, state))
+# Example loop for simulation
+done = False
+state = env.reset()  # Initialize the state
 
-    # Check if the state exists in the value function
-    if state_tuple in value_function:
-        # If the state is found, select the best action (max value)
-        best_action = max(
-            range(4), key=lambda action: value_function[state_tuple][action])
-    else:
-        # If the state is not found, choose a random action or a fallback strategy
-        best_action = random.choice([0, 1, 2, 3])
+while not done:
+    action = agent.get_action(state, env.score)  # Get action from agent
+    # Take the action in the environment
+    state, score, done, _ = env.step(action)
+    env.render()  # Render the environment to visualize the state
 
-    return best_action
-    # env = Game2048Env()
-    # return random.choice([0, 1, 2, 3])  # Choose a random action
+print(f"Game Over! Final Score: {env.score}")
 
-    # You can submit this random agent to evaluate the performance of a purely random strategy.
+
+# def get_action(state, score):
+#     env = Game2048Env()
+#     return random.choice([0, 1, 2, 3])  # Choose a random action
+
+#     # You can submit this random agent to evaluate the performance of a purely random strategy.

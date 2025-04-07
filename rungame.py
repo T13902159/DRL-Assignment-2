@@ -1,7 +1,3 @@
-import pickle
-import numpy as np
-import random
-import copy
 import numpy as np
 import gym
 from gym import spaces
@@ -9,102 +5,37 @@ import matplotlib.pyplot as plt
 import pickle
 import random
 
+# Make sure to define your Game2048Env class and load_value_function here...
+# Define the COLOR_MAP and TEXT_COLOR dictionaries for rendering
+COLOR_MAP = {
+    0: "#cdc1b4",  # Empty tiles (light grey)
+    2: "#eee4da",  # Tile with 2 (light beige)
+    4: "#ede0c8",  # Tile with 4 (beige)
+    8: "#f2b179",  # Tile with 8 (orange)
+    16: "#f59563",  # Tile with 16 (orange-red)
+    32: "#f67c5f",  # Tile with 32 (red)
+    64: "#f65e3b",  # Tile with 64 (dark red)
+    128: "#edcf72",  # Tile with 128 (yellow)
+    256: "#edcc61",  # Tile with 256 (light yellow)
+    512: "#edc850",  # Tile with 512 (yellow-orange)
+    1024: "#edc53f",  # Tile with 1024 (dark yellow)
+    2048: "#edc22e",  # Tile with 2048 (gold)
+}
 
-class MCTSNode:
-    def __init__(self, state, parent=None):
-        self.state = state
-        self.parent = parent
-        self.children = []
-        self.visits = 0
-        self.total_reward = 0
-        self.untried_actions = [0, 1, 2, 3]  # up, down, left, right
-
-    def is_fully_expanded(self):
-        return len(self.untried_actions) == 0
-
-    def best_child(self):
-        """Choose the child with the highest UCB (Upper Confidence Bound) score."""
-        best_score = -float('inf')
-        best_child = None
-        for child in self.children:
-            ucb = child.total_reward / \
-                (child.visits + 1) + np.sqrt(2 *
-                                             np.log(self.visits + 1) / (child.visits + 1))
-            if ucb > best_score:
-                best_score = ucb
-                best_child = child
-        return best_child
-
-
-class MCTS:
-    def __init__(self, env, iterations=1000):
-        self.env = env
-        self.iterations = iterations
-        self.state_action_values = {}  # Dictionary to store state-action values
-
-    def select(self, node):
-        """Select the best child node using UCB1."""
-        while not node.is_fully_expanded():
-            action = node.untried_actions.pop()
-            next_state, reward, done, _ = self.env.step(action)
-            child_node = MCTSNode(next_state, parent=node)
-            node.children.append(child_node)
-            return child_node
-        return node.best_child()
-
-    def simulate(self, node):
-        """Simulate a random rollout from the given node."""
-        temp_env = copy.deepcopy(
-            self.env)  # Create a temporary copy of the environment
-        state = node.state
-        done = False
-        total_reward = 0
-
-        while not done:
-            action = random.choice([0, 1, 2, 3])  # Random action
-            state, reward, done, _ = temp_env.step(action)
-            total_reward += reward
-
-        return total_reward
-
-    def backpropagate(self, node, reward):
-        """Backpropagate the reward through the tree."""
-        while node is not None:
-            node.visits += 1
-            node.total_reward += reward
-            node = node.parent
-
-    def run(self, state):
-        """Run the MCTS search for a given state."""
-        root = MCTSNode(state)
-
-        for _ in range(self.iterations):
-            node = root
-            # Selection: traverse the tree to find a node to expand
-            node = self.select(node)
-            # Simulation: perform a random simulation and get a reward
-            reward = self.simulate(node)
-            # Backpropagation: propagate the result back up the tree
-            self.backpropagate(node, reward)
-
-        # Store the best action for the current state
-        best_child = root.best_child()
-        best_action = best_child.parent.untried_actions[0]
-        self.state_action_values[tuple(map(tuple, state))] = best_action
-
-        return best_action
-
-    def save_model(self, filename='mcts_model.pkl'):
-        """Save the learned state-action values to a pickle file."""
-        with open(filename, 'wb') as f:
-            pickle.dump(self.state_action_values, f)
-        print(f"Model saved to {filename}")
-
-    def load_model(self, filename='mcts_model.pkl'):
-        """Load the state-action values from a pickle file."""
-        with open(filename, 'rb') as f:
-            self.state_action_values = pickle.load(f)
-        print(f"Model loaded from {filename}")
+TEXT_COLOR = {
+    0: "#776e65",  # Text color for empty tiles (dark grey)
+    2: "#776e65",  # Text color for 2 (dark grey)
+    4: "#776e65",  # Text color for 4 (dark grey)
+    8: "#f9f6f2",  # Text color for 8 (light grey)
+    16: "#f9f6f2",  # Text color for 16 (light grey)
+    32: "#f9f6f2",  # Text color for 32 (light grey)
+    64: "#f9f6f2",  # Text color for 64 (light grey)
+    128: "#f9f6f2",  # Text color for 128 (light grey)
+    256: "#f9f6f2",  # Text color for 256 (light grey)
+    512: "#f9f6f2",  # Text color for 512 (light grey)
+    1024: "#f9f6f2",  # Text color for 1024 (light grey)
+    2048: "#f9f6f2",  # Text color for 2048 (light grey)
+}
 
 
 class Game2048Env(gym.Env):
@@ -333,22 +264,97 @@ class Game2048Env(gym.Env):
         return not np.array_equal(self.board, temp_board)
 
 
-# Initialize your environment
-env = Game2048Env()
+def load_value_function(filename='value.pkl'):
+    """Load the value function from a pickle file."""
+    with open(filename, 'rb') as f:
+        value_function = pickle.load(f)
+    return value_function
 
-# Train the agent using MCTS
-mcts_agent = MCTS(env, iterations=1000)
-done = False
-state = env.reset()
 
-# Run for a fixed number of steps or episodes
-for episode in range(100):  # Train for 100 episodes
+def get_action(state, score):
+    import numpy as np
+
+
+class StudentAgent:
+    def __init__(self, env):
+        self.env = env
+        self.actions = ["up", "down", "left", "right"]
+
+    def check_move_valid(self, action):
+        """Check if a move is valid."""
+        # Create a copy of the current board state
+        temp_board = self.env.board.copy()
+        moved = False
+
+        if action == 0:  # Move up
+            moved = self.env.move_up()
+        elif action == 1:  # Move down
+            moved = self.env.move_down()
+        elif action == 2:  # Move left
+            moved = self.env.move_left()
+        elif action == 3:  # Move right
+            moved = self.env.move_right()
+
+        # Return if the move was valid (it changed the board)
+        return moved
+
+    def get_action(self, state, score):
+        """
+        Get action based on the current state and score using the defined strategy:
+        1. Try right, down
+        2. Use left if right/down are invalid
+        3. Use up if left is also invalid
+        """
+        # Check for right (action 3) move first
+        if self.check_move_valid(3):  # Right
+            return 3
+
+        # Check for down (action 1) move second
+        if self.check_move_valid(1):  # Down
+            return 1
+
+        # Check for left (action 2) move if right and down are not valid
+        if self.check_move_valid(2):  # Left
+            return 2
+
+        # Check for up (action 0) if none of the above are valid
+        if self.check_move_valid(0):  # Up
+            return 0
+
+        # If no move is valid, return a random action (just in case)
+        return random.choice([0, 1, 2, 3])
+
+
+def run_game():
+    # Create the environment
+    env = Game2048Env()
+
+    # Reset the environment to start a new episode
     state = env.reset()
     done = False
-    while not done:
-        action = mcts_agent.run(state)  # Use MCTS to select an action
-        state, reward, done, _ = env.step(action)
-        env.render()  # Optionally render the game after each step
 
-# Save the learned state-action values to a pickle file
-mcts_agent.save_model('mcts_model.pkl')
+    # Keep track of the total score
+    total_score = 0
+
+    # Run the game until it ends
+    while not done:
+        # Get the action from the agent
+        action = get_action(state, env.score)
+
+        # Take the action and observe the result
+        next_state, reward, done, info = env.step(action)
+
+        # Update the total score
+        total_score = env.score
+
+        # Render the current state of the board (optional, will show a plot)
+        env.render(action=action)
+
+        # Set the state for the next iteration
+        state = next_state
+
+    print(f"Game Over! Final score: {total_score}")
+
+
+# Run the game
+run_game()
