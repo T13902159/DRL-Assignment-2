@@ -1,7 +1,6 @@
 import numpy as np
 import random
 from game_2048_env import Game2048Env
-import copy
 import math
 
 
@@ -23,18 +22,18 @@ class UCTNode:
 def heuristic(env):
     empty_tiles = np.sum(env.board == 0)
     max_tile = np.max(env.board)
-    return empty_tiles + math.log2(max_tile)
+    return empty_tiles + math.log2(max_tile + 1)
 
 
 class UCTMCTS:
-    def __init__(self, env, iterations=200, exploration_constant=0.9, rollout_depth=20):
+    def __init__(self, env, iterations=50, exploration_constant=0.9, rollout_depth=5):
         self.env = env
         self.iterations = iterations
         self.c = exploration_constant
         self.rollout_depth = rollout_depth
 
     def create_env_from_state(self, state, score):
-        new_env = copy.deepcopy(self.env)
+        new_env = Game2048Env()
         new_env.board = state.copy()
         new_env.score = score
         return new_env
@@ -48,7 +47,7 @@ class UCTMCTS:
             else:
                 exploit = child.total_reward / child.visits
                 explore = self.c * \
-                    math.sqrt(math.log(node.visits) / child.visits)
+                    math.sqrt(math.log(node.visits + 1) / child.visits)
                 uct_value = exploit + explore
             if uct_value > best_score:
                 best_score = uct_value
@@ -80,13 +79,13 @@ class UCTMCTS:
 
         while node.fully_expanded() and node.children:
             node = self.select_child(node)
-            _, reward, done, _ = sim_env.step(node.action)
+            _, _, done, _ = sim_env.step(node.action)
             if done:
-                break
+                return
 
         if not node.fully_expanded():
             action = node.untried_actions.pop()
-            _, reward, done, _ = sim_env.step(action)
+            _, _, done, _ = sim_env.step(action)
             new_state = sim_env.board.copy()
             new_score = sim_env.score
             child_node = UCTNode(
@@ -116,12 +115,19 @@ def get_action(state, score):
     env.board = np.copy(state)
     env.score = score
 
-    uct_mcts = UCTMCTS(env, iterations=200,
-                       exploration_constant=0.9, rollout_depth=20)
+    uct_mcts = UCTMCTS(env, iterations=100,
+                       exploration_constant=0.9, rollout_depth=5)
     root = UCTNode(state=env.board.copy(), score=env.score, env=env)
 
     for _ in range(uct_mcts.iterations):
         uct_mcts.run_simulation(root)
 
     best_action, _ = uct_mcts.best_action_distribution(root)
-    return best_action if best_action is not None else 0
+
+    # Fallback in case best_action is None or illegal
+    if best_action is not None and env.is_move_legal(best_action):
+        return best_action
+    for a in [3, 1, 2, 0]:  # right, down, left, up
+        if env.is_move_legal(a):
+            return a
+    return 0
